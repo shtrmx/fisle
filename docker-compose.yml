@@ -1,0 +1,40 @@
+services:
+  fisle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fisle
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    restart: unless-stopped
+    networks:
+      - fisle-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: fisle-cloudflared
+    depends_on:
+      fisle:
+        condition: service_healthy
+    restart: unless-stopped
+    # Без CLOUDFLARE_TUNNEL_TOKEN запускает быстрый туннель (URL вида https://*.trycloudflare.com в логах).
+    # С CLOUDFLARE_TUNNEL_TOKEN подключается к постоянному туннелю Cloudflare Zero Trust (service URL: http://fisle:3000).
+    command: >-
+      tunnel --no-autoupdate
+      ${CLOUDFLARE_TUNNEL_TOKEN:+run --token}
+      ${CLOUDFLARE_TUNNEL_TOKEN:- --url http://fisle:3000}
+    networks:
+      - fisle-net
+
+networks:
+  fisle-net:
+    driver: bridge

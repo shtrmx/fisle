@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Hexagon base shadow lip -->
+  <polygon
+    points="32,5 56,19 56,47 32,61 8,47 8,19"
+    fill="#14532d"
+    stroke="#0f172a"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+  <!-- Hexagon top face -->
+  <polygon
+    points="32,3 55,16.5 55,43.5 32,57 9,43.5 9,16.5"
+    fill="#22c55e"
+    stroke="#0f172a"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+  <!-- Subtle inner hex highlight -->
+  <polygon
+    points="32,7 51.5,18.5 51.5,41.5 32,53 12.5,41.5 12.5,18.5"
+    fill="none"
+    stroke="#86efac"
+    stroke-opacity="0.45"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+  />
+  <!-- Windmill tower body -->
+  <polygon
+    points="25,47 28,25 36,25 39,47"
+    fill="#f8fafc"
+    stroke="#0f172a"
+    stroke-width="2.2"
+    stroke-linejoin="round"
+  />
+  <!-- Tower door -->
+  <path
+    d="M29.5,47 V41.5 A2.5,2.5 0 0 1 34.5,41.5 V47 Z"
+    fill="#78350f"
+    stroke="#0f172a"
+    stroke-width="1.4"
+  />
+  <!-- Conical roof -->
+  <polygon
+    points="26,26 32,16 38,26"
+    fill="#d97706"
+    stroke="#0f172a"
+    stroke-width="2.2"
+    stroke-linejoin="round"
+  />
+  <!-- 4 Windmill sails (rotated X-cross) -->
+  <g stroke="#0f172a" stroke-width="2" stroke-linejoin="round">
+    <!-- Top-left blade -->
+    <polygon points="32,26 17,11 21,8 33,24" fill="#fef3c7" />
+    <!-- Top-right blade -->
+    <polygon points="32,26 47,11 50,15 34,27" fill="#fde68a" />
+    <!-- Bottom-right blade -->
+    <polygon points="32,26 47,41 43,44 31,28" fill="#fef3c7" />
+    <!-- Bottom-left blade -->
+    <polygon points="32,26 17,41 14,37 30,25" fill="#fde68a" />
+  </g>
+  <!-- Rotor hub -->
+  <circle cx="32" cy="26" r="3.4" fill="#f59e0b" stroke="#0f172a" stroke-width="2" />
+</svg>
