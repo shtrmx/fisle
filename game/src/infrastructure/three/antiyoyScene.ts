@@ -143,12 +143,16 @@ export class AntiyoyThreeScene {
 
   private readonly hexNodes = new Map<HexKey, HexVisualNode>();
   private animatedNodes: HexVisualNode[] = [];
-  private flareOrbs: Array<{orb: THREE.Object3D; ring: THREE.Object3D}> = [];
+  private flareOrbs: Map<
+    string,
+    {group: THREE.Group; orb: THREE.Object3D; ring: THREE.Object3D; phase: number}
+  > = new Map();
   private activePulseCleanup: (() => void) | null = null;
   private activeBorderPulseCleanup: (() => void) | null = null;
   private viewerFaction: FactionId | null = null;
   private activeFxCount = 0;
   private lastShadowAnimUpdateMs = 0;
+  private menuShowcaseActive = false;
 
   private keyLight!: THREE.DirectionalLight;
 
@@ -627,7 +631,7 @@ export class AntiyoyThreeScene {
     }
     this.hexNodes.clear();
     this.animatedNodes = [];
-    this.flareOrbs = [];
+    this.flareOrbs.clear();
   }
 
   private attachFigurineToNode(
@@ -761,72 +765,77 @@ export class AntiyoyThreeScene {
     });
   }
 
+  private upsertMarkerOrb(
+    id: string,
+    node: HexVisualNode,
+    beamMat: THREE.Material,
+    orbMat: THREE.Material,
+    ringMat: THREE.Material,
+    phase: number,
+  ): void {
+    if (this.flareOrbs.has(id)) return;
+
+    const g = new THREE.Group();
+    g.position.set(node.worldX, node.topY + 0.04, node.worldZ);
+
+    const beam = new THREE.Mesh(this.flareBeamGeo, beamMat);
+    beam.position.y = 0.6;
+    g.add(beam);
+
+    const orb = new THREE.Mesh(this.flareOrbGeo, orbMat);
+    orb.position.y = 1.56;
+    g.add(orb);
+
+    const ring = new THREE.Mesh(this.flareRingGeo, ringMat);
+    ring.position.y = 1.56;
+    ring.rotation.x = Math.PI / 3;
+    g.add(ring);
+
+    this.flaresGroup.add(g);
+    this.flareOrbs.set(id, {group: g, orb, ring, phase});
+  }
+
   private syncFlares(state: GameState): void {
-    while (this.flaresGroup.children.length > 0) {
-      this.flaresGroup.remove(this.flaresGroup.children[0]);
-    }
-    this.flareOrbs = [];
+    const desiredIds = new Set<string>();
+    let idx = 0;
 
     for (const flare of state.flares) {
       if (flare.turnsRemaining <= 0) continue;
       const node = this.hexNodes.get(flare.centerKey);
       if (!node) continue;
-      const g = new THREE.Group();
-      g.position.set(node.worldX, node.topY + 0.04, node.worldZ);
-
-      const beam = new THREE.Mesh(this.flareBeamGeo, this.materials.flareBeam);
-      beam.position.y = 0.6;
-      g.add(beam);
-
-      // High-contrast royal violet orb + dark indigo equatorial ring floating cleanly above cone
-      const orb = new THREE.Mesh(this.flareOrbGeo, this.materials.flareOrbMat);
-      orb.position.y = 1.56;
-      g.add(orb);
-
-      const ring = new THREE.Mesh(
-        this.flareRingGeo,
+      const id = `flare:${flare.centerKey}`;
+      desiredIds.add(id);
+      this.upsertMarkerOrb(
+        id,
+        node,
+        this.materials.flareBeam,
+        this.materials.flareOrbMat,
         this.materials.flareRingMat,
+        idx++ * 0.85,
       );
-      ring.position.y = 1.56;
-      ring.rotation.x = Math.PI / 3;
-      g.add(ring);
-
-      this.flaresGroup.add(g);
-      this.flareOrbs.push({orb, ring});
     }
 
     for (const reg of state.regenerators ?? []) {
       const node = this.hexNodes.get(reg.centerKey);
       if (!node) continue;
       if (this.visibleHexes && !this.visibleHexes.has(reg.centerKey)) continue;
-
-      const g = new THREE.Group();
-      g.position.set(node.worldX, node.topY + 0.04, node.worldZ);
-
-      const beam = new THREE.Mesh(
-        this.flareBeamGeo,
+      const id = `reg:${reg.centerKey}`;
+      desiredIds.add(id);
+      this.upsertMarkerOrb(
+        id,
+        node,
         this.materials.regeneratorBeam,
-      );
-      beam.position.y = 0.6;
-      g.add(beam);
-
-      const orb = new THREE.Mesh(
-        this.flareOrbGeo,
         this.materials.regeneratorOrbMat,
-      );
-      orb.position.y = 1.56;
-      g.add(orb);
-
-      const ring = new THREE.Mesh(
-        this.flareRingGeo,
         this.materials.regeneratorRingMat,
+        idx++ * 0.85,
       );
-      ring.position.y = 1.56;
-      ring.rotation.x = Math.PI / 3;
-      g.add(ring);
+    }
 
-      this.flaresGroup.add(g);
-      this.flareOrbs.push({orb, ring});
+    for (const [id, entry] of this.flareOrbs.entries()) {
+      if (!desiredIds.has(id)) {
+        this.flaresGroup.remove(entry.group);
+        this.flareOrbs.delete(id);
+      }
     }
   }
 
@@ -1665,6 +1674,11 @@ export class AntiyoyThreeScene {
     this.cameraRig.setMode(mode);
   }
 
+  public setMenuShowcaseMode(enabled: boolean): void {
+    this.menuShowcaseActive = enabled;
+    this.cameraRig.setMenuShowcaseMode(enabled);
+  }
+
   public setCameraZoom(zoom: number): void {
     this.cameraRig.setZoomSmooth(zoom);
   }
@@ -2076,6 +2090,10 @@ export class AntiyoyThreeScene {
       const dt = Math.min(0.1, this.clock.getDelta());
       const elapsed = this.clock.elapsedTime;
 
+      if (this.menuShowcaseActive) {
+        this.cameraRig.advanceShowcaseOrbit(dt * 0.08);
+      }
+
       const animList = this.animatedNodes;
       for (let i = 0; i < animList.length; i++) {
         const node = animList[i];
@@ -2102,12 +2120,11 @@ export class AntiyoyThreeScene {
       }
 
       // Spin vivid flare & regenerator orbs cleanly above their light cones
-      for (let i = 0; i < this.flareOrbs.length; i++) {
-        const {orb, ring} = this.flareOrbs[i];
-        const y = 1.56 + Math.sin(elapsed * 2.5 + i) * 0.07;
-        orb.rotation.y += dt * 1.6;
+      for (const {orb, ring, phase} of this.flareOrbs.values()) {
+        const y = 1.56 + Math.sin(elapsed * 2.5 + phase) * 0.07;
+        orb.rotation.y = elapsed * 1.6 + phase;
         orb.position.y = y;
-        ring.rotation.z -= dt * 1.1;
+        ring.rotation.z = -elapsed * 1.1 + phase;
         ring.position.y = y;
       }
 

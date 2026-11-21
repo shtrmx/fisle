@@ -100,9 +100,22 @@ interface SocketBinding {
   playerId: string;
 }
 
+function parseNonNegativeIntEnv(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.floor(parsed);
+}
+
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const MAX_ROOMS_PER_CREATOR = 3;
-const MAX_TOTAL_ROOMS = 100;
+const MAX_ROOMS_PER_CREATOR = parseNonNegativeIntEnv(
+  process.env.MAX_ROOMS_PER_PLAYER ?? process.env.MAX_ROOMS_PER_CREATOR,
+  3,
+);
+const MAX_TOTAL_ROOMS = parseNonNegativeIntEnv(
+  process.env.MAX_ROOMS ?? process.env.MAX_TOTAL_ROOMS,
+  100,
+);
 const EMPTY_ROOM_IDLE_TTL_MS = 60 * 60 * 1000;
 const CLEANUP_SWEEP_INTERVAL_MS = 60 * 1000;
 const VISITOR_ONLINE_TTL_MS = 60 * 1000;
@@ -281,7 +294,7 @@ export class RoomManager {
     return {
       onlineUsers: activeIdentities.size,
       activeRooms,
-      freeRooms: Math.max(0, MAX_TOTAL_ROOMS - activeRooms),
+      freeRooms: MAX_TOTAL_ROOMS > 0 ? Math.max(0, MAX_TOTAL_ROOMS - activeRooms) : 0,
       maxRooms: MAX_TOTAL_ROOMS,
     };
   }
@@ -309,7 +322,7 @@ export class RoomManager {
     cookieId: string | null,
   ): boolean {
     this.cleanupStaleRooms();
-    if (this.rooms.size >= MAX_TOTAL_ROOMS) {
+    if (MAX_TOTAL_ROOMS > 0 && this.rooms.size >= MAX_TOTAL_ROOMS) {
       sendJson(socket, {
         type: 'error',
         code: 'ROOM_LIMIT_GLOBAL',
@@ -324,7 +337,7 @@ export class RoomManager {
           createdByPlayer++;
         }
       }
-      if (createdByPlayer >= MAX_ROOMS_PER_CREATOR) {
+      if (MAX_ROOMS_PER_CREATOR > 0 && createdByPlayer >= MAX_ROOMS_PER_CREATOR) {
         sendJson(socket, {
           type: 'error',
           code: 'ROOM_LIMIT_PLAYER',

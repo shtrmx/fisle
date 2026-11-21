@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, type Component} from 'vue';
+import { computed, type Component } from 'vue';
 import {
   Clock,
   Coins,
@@ -38,11 +38,11 @@ import {
   TRADING_POST_FARM_SYNERGY,
   TRADING_POST_HEX_COUNT,
 } from '@/domain/game/rules';
-import {useGameStore} from '@/application/stores/useGameStore';
-import type {PreviewToolId} from '@/infrastructure/three/figurinePreviewRenderer';
+import { useGameStore } from '@/application/stores/useGameStore';
+import type { PreviewToolId } from '@/infrastructure/three/figurinePreviewRenderer';
 import FigurineCanvas3D from '@/presentation/FigurineCanvas3D.vue';
 import ModalDialog from '@/components/ui/dialog/ModalDialog.vue';
-import {Button} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import Separator from '@/components/ui/separator/Separator.vue';
 
 const props = defineProps<{
@@ -375,41 +375,28 @@ const details = computed<DetailedToolInfo | null>(() => {
 </script>
 
 <template>
-  <ModalDialog
-    :open="props.open && Boolean(details)"
-    :title="details?.title ?? 'Информация'"
-    content-class="w-[min(94vw,540px)] max-h-[88vh] overflow-y-auto"
-    @update:open="(val) => emit('update:open', val)"
-  >
+  <ModalDialog :open="props.open && Boolean(details)" :title="details?.title ?? 'Информация'"
+    content-class="w-[min(94vw,540px)] max-h-[88vh] overflow-y-auto" @update:open="(val) => emit('update:open', val)">
     <div v-if="details && props.tool" class="space-y-4">
       <!-- Top Header Block: 3D Preview Stage + Identity + Full Structured Description -->
       <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
         <div
-          class="relative flex size-28 sm:size-32 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/45 shadow-inner overflow-hidden"
-        >
+          class="relative flex size-28 sm:size-32 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/45 shadow-inner overflow-hidden">
           <FigurineCanvas3D :tool="props.tool" :faction="props.faction" />
         </div>
 
         <div class="flex-1 min-w-0 space-y-2 text-center sm:text-left">
-          <div
-            class="flex flex-wrap items-center justify-center sm:justify-between gap-2"
-          >
-            <span
-              class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-            >
+          <div class="flex flex-wrap items-center justify-center sm:justify-between gap-2">
+            <span class="text-[11px] font-semiboldtracking-wider text-muted-foreground">
               {{ details.category }}
             </span>
 
-            <span
-              class="inline-flex items-center gap-1 font-mono text-sm font-bold tabular-nums"
-              :class="
-                details.costTone === 'emerald'
-                  ? 'text-emerald-400'
-                  : details.costTone === 'gold'
-                    ? 'text-amber-300'
-                    : 'text-rose-400'
-              "
-            >
+            <span class="inline-flex items-center gap-1 font-mono text-sm font-bold tabular-nums" :class="details.costTone === 'emerald'
+                ? 'text-emerald-400'
+                : details.costTone === 'gold'
+                  ? 'text-amber-300'
+                  : 'text-rose-400'
+              ">
               <Coins class="size-4 shrink-0" />
               <span>{{ details.costText }}</span>
             </span>
@@ -425,40 +412,28 @@ const details = computed<DetailedToolInfo | null>(() => {
 
       <!-- Full Text-Labeled Characteristics Grid -->
       <div class="space-y-2">
-        <h3
-          class="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-        >
+        <h3 class="text-xs font-semiboldtracking-wider text-muted-foreground">
           Характеристики
         </h3>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div
-            v-for="row in details.rows"
-            :key="row.key"
-            class="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-secondary/35 px-3 py-2"
-          >
+          <div v-for="row in details.rows" :key="row.key"
+            class="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-secondary/35 px-3 py-2">
             <div class="flex items-center gap-2 min-w-0 text-xs text-muted-foreground">
-              <component
-                :is="row.icon"
-                class="size-4 shrink-0 text-foreground/80"
-              />
+              <component :is="row.icon" class="size-4 shrink-0 text-foreground/80" />
               <span class="truncate">{{ row.label }}</span>
             </div>
 
-            <span
-              class="shrink-0 font-mono text-xs font-semibold tabular-nums"
-              :class="
-                row.tone === 'emerald'
-                  ? 'text-emerald-400'
-                  : row.tone === 'gold'
-                    ? 'text-amber-300'
-                    : row.tone === 'rose'
-                      ? 'text-rose-400'
-                      : row.tone === 'sky'
-                        ? 'text-sky-300'
-                        : 'text-foreground'
-              "
-            >
+            <span class="shrink-0 font-mono text-xs font-semibold tabular-nums" :class="row.tone === 'emerald'
+                ? 'text-emerald-400'
+                : row.tone === 'gold'
+                  ? 'text-amber-300'
+                  : row.tone === 'rose'
+                    ? 'text-rose-400'
+                    : row.tone === 'sky'
+                      ? 'text-sky-300'
+                      : 'text-foreground'
+              ">
               {{ row.value }}
             </span>
           </div>
@@ -466,21 +441,14 @@ const details = computed<DetailedToolInfo | null>(() => {
       </div>
 
       <!-- Mechanics / Strategy Note -->
-      <div
-        v-if="details.mechanicsNote"
-        class="rounded-lg border border-border bg-secondary/30 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground"
-      >
+      <div v-if="details.mechanicsNote"
+        class="rounded-lg border border-border bg-secondary/30 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
         <div class="mb-1 font-semibold text-foreground">Особенности и тактика</div>
         <p>{{ details.mechanicsNote }}</p>
       </div>
 
       <div class="flex justify-end pt-1">
-        <Button
-          variant="secondary"
-          size="sm"
-          class="cursor-pointer"
-          @click="emit('update:open', false)"
-        >
+        <Button variant="secondary" size="sm" class="cursor-pointer" @click="emit('update:open', false)">
           Закрыть
         </Button>
       </div>

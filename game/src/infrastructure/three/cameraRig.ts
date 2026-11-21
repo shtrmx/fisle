@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import {animate, type JSAnimation} from 'animejs';
-import {CameraMode} from '@/domain/game/types';
+import { animate, type JSAnimation } from 'animejs';
+import { CameraMode } from '@/domain/game/types';
 
 export interface CameraTelemetryCallback {
   (zoom: number, tiltFactor: number): void;
@@ -12,6 +12,7 @@ const AUTO_TILT_START_ZOOM = 1.05;
 const AUTO_TILT_END_ZOOM = 2.4;
 const MIN_POLAR_2D = 0.015; // Virtually flat 2D top-down view
 const MAX_POLAR_3D = 0.95; // ~54° tactile orthographic diorama tilt
+const SHOWCASE_POLAR_3D = 1.02; // ~58° deeper 3D diorama angle for main menu background
 const CAMERA_RADIUS = 96;
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
@@ -31,12 +32,13 @@ export class OrthographicCameraRig {
   private frustumSize = 24;
   private aspect = 16 / 9;
 
-  private zoomState = {value: 0.82};
-  private polarState = {value: MIN_POLAR_2D};
-  private azimuthState = {value: 0};
-  private panState = {x: 0, z: 0};
+  private zoomState = { value: 0.82 };
+  private polarState = { value: MIN_POLAR_2D };
+  private azimuthState = { value: 0 };
+  private panState = { x: 0, z: 0 };
 
   private mode: CameraMode = CameraMode.AUTO;
+  private menuShowcaseActive = false;
   private activeTween: JSAnimation | null = null;
   private onTelemetry?: CameraTelemetryCallback;
   private onDirty?: () => void;
@@ -76,7 +78,7 @@ export class OrthographicCameraRig {
       Math.min(
         1,
         (this.polarState.value - MIN_POLAR_2D) /
-          (MAX_POLAR_3D - MIN_POLAR_2D),
+        (MAX_POLAR_3D - MIN_POLAR_2D),
       ),
     );
   }
@@ -87,8 +89,37 @@ export class OrthographicCameraRig {
     this.camera.right = (this.frustumSize * this.aspect) / 2;
     this.camera.top = this.frustumSize / 2;
     this.camera.bottom = -this.frustumSize / 2;
+    if (this.menuShowcaseActive) {
+      this.zoomState.value = this.computeShowcaseZoom();
+      this.applyCameraTransform();
+      return;
+    }
     this.camera.updateProjectionMatrix();
     this.onDirty?.();
+  }
+
+  private computeShowcaseZoom(): number {
+    const aspectFit = Math.min(1, this.aspect);
+    return Math.max(0.78, Math.min(1.5, 1.55 * aspectFit));
+  }
+
+  public setMenuShowcaseMode(enabled: boolean): void {
+    if (this.menuShowcaseActive === enabled) return;
+    this.menuShowcaseActive = enabled;
+    this.cancelTransitions();
+    if (enabled) {
+      this.panState.x = 0;
+      this.panState.z = 0;
+      this.zoomState.value = this.computeShowcaseZoom();
+      this.polarState.value = SHOWCASE_POLAR_3D;
+      this.applyCameraTransform();
+    }
+  }
+
+  public advanceShowcaseOrbit(deltaRadians: number): void {
+    if (!this.menuShowcaseActive) return;
+    this.azimuthState.value += deltaRadians;
+    this.applyCameraTransform();
   }
 
   public fitToBoardBounds(maxExtent: number): void {
@@ -99,9 +130,16 @@ export class OrthographicCameraRig {
     this.camera.bottom = -this.frustumSize / 2;
     this.panState.x = 0;
     this.panState.z = 0;
-    this.zoomState.value = 0.92;
-    this.azimuthState.value = 0;
-    this.polarState.value = this.computeTargetPolarForZoom(this.zoomState.value);
+    if (this.menuShowcaseActive) {
+      this.zoomState.value = this.computeShowcaseZoom();
+      this.polarState.value = SHOWCASE_POLAR_3D;
+    } else {
+      this.zoomState.value = 0.92;
+      this.azimuthState.value = 0;
+      this.polarState.value = this.computeTargetPolarForZoom(
+        this.zoomState.value,
+      );
+    }
     this.applyCameraTransform();
   }
 

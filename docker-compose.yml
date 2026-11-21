@@ -1,14 +1,24 @@
 services:
   fisle:
+    image: ${DOCKERHUB_USER:-shtrmx}/fisle-game:${FISLE_VERSION:-latest}
     build:
-      context: .
+      context: ./game
       dockerfile: Dockerfile
+      args:
+        VERSION: ${FISLE_VERSION:-latest}
     container_name: fisle
     ports:
       - "${PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
+      MAX_ROOMS: ${MAX_ROOMS:-100}
+      MAX_ROOMS_PER_PLAYER: ${MAX_ROOMS_PER_PLAYER:-3}
+    deploy:
+      resources:
+        limits:
+          cpus: "${CPU_LIMIT:-1.0}"
+          memory: "${MEMORY_LIMIT:-512M}"
     restart: unless-stopped
     networks:
       - fisle-net
@@ -18,22 +28,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: fisle-cloudflared
-    depends_on:
-      fisle:
-        condition: service_healthy
-    restart: unless-stopped
-    # Без CLOUDFLARE_TUNNEL_TOKEN запускает быстрый туннель (URL вида https://*.trycloudflare.com в логах).
-    # С CLOUDFLARE_TUNNEL_TOKEN подключается к постоянному туннелю Cloudflare Zero Trust (service URL: http://fisle:3000).
-    command: >-
-      tunnel --no-autoupdate
-      ${CLOUDFLARE_TUNNEL_TOKEN:+run --token}
-      ${CLOUDFLARE_TUNNEL_TOKEN:- --url http://fisle:3000}
-    networks:
-      - fisle-net
 
 networks:
   fisle-net:

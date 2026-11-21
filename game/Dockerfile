@@ -12,8 +12,17 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
+ARG VERSION=0.2.5
+LABEL org.opencontainers.image.title="fisle-game" \
+      org.opencontainers.image.description="Turn-based hexagonal 3D strategy game inspired by Antiyoy" \
+      org.opencontainers.image.source="https://github.com/shtrmx/fisle" \
+      org.opencontainers.image.authors="shtrmx" \
+      org.opencontainers.image.version="${VERSION}"
+
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV MAX_ROOMS=100
+ENV MAX_ROOMS_PER_PLAYER=3
 
 COPY package.json ./
 RUN npm install --omit=dev && npm cache clean --force

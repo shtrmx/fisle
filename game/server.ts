@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import zlib from 'node:zlib';
 import express, {type Request, type Response} from 'express';
 import {WebSocketServer} from 'ws';
 
@@ -212,9 +213,88 @@ async function startServer(): Promise<void> {
     app.use(vite.middlewares);
   } else {
     const distDir = path.resolve(__dirname, 'dist');
-    app.use(express.static(distDir));
+    const mimeTypes: Record<string, string> = {
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'application/javascript; charset=utf-8',
+      '.mjs': 'application/javascript; charset=utf-8',
+      '.css': 'text/css; charset=utf-8',
+      '.svg': 'image/svg+xml',
+      '.json': 'application/json; charset=utf-8',
+      '.webmanifest': 'application/manifest+json; charset=utf-8',
+    };
+    const compressedCache = new Map<
+      string,
+      {raw: Buffer; gzip: Buffer; br: Buffer; contentType: string}
+    >();
+
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || req.headers.range) {
+        next();
+        return;
+      }
+      const reqPath = req.path === '/' ? '/index.html' : req.path;
+      const ext = path.extname(reqPath).toLowerCase();
+      const contentType = mimeTypes[ext];
+      if (!contentType) {
+        next();
+        return;
+      }
+      const relPath = reqPath.replace(/^\/+/, '');
+      const resolved = path.resolve(distDir, relPath);
+      if (
+        !resolved.startsWith(distDir + path.sep) ||
+        !fs.existsSync(resolved) ||
+        !fs.statSync(resolved).isFile()
+      ) {
+        next();
+        return;
+      }
+
+      let entry = compressedCache.get(resolved);
+      if (!entry) {
+        const raw = fs.readFileSync(resolved);
+        entry = {
+          raw,
+          gzip: zlib.gzipSync(raw, {level: 6}),
+          br: zlib.brotliCompressSync(raw, {
+            params: {[zlib.constants.BROTLI_PARAM_QUALITY]: 5},
+          }),
+          contentType,
+        };
+        compressedCache.set(resolved, entry);
+      }
+
+      if (reqPath.startsWith('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (reqPath === '/sw.js' || reqPath === '/index.html') {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
+
+      res.setHeader('Content-Type', entry.contentType);
+      res.setHeader('Vary', 'Accept-Encoding');
+
+      const acceptEncoding = String(req.headers['accept-encoding'] ?? '');
+      if (acceptEncoding.includes('br')) {
+        res.setHeader('Content-Encoding', 'br');
+        res.send(entry.br);
+      } else if (acceptEncoding.includes('gzip')) {
+        res.setHeader('Content-Encoding', 'gzip');
+        res.send(entry.gzip);
+      } else {
+        res.send(entry.raw);
+      }
+    });
+
+    app.use(
+      express.static(distDir, {
+        maxAge: '30d',
+      }),
+    );
     app.get('*', (req, res) => {
       ensurePlayerCookie(req, res);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(distDir, 'index.html'));
     });
   }

@@ -185,6 +185,7 @@ onMounted(() => {
     },
   });
 
+  sceneInstance.setMenuShowcaseMode(store.showMainMenu);
   sceneInstance.rebuildBoard(
     store.gameState,
     store.visibleHexSet,
@@ -192,6 +193,13 @@ onMounted(() => {
   );
   pushHighlights();
 });
+
+watch(
+  () => store.showMainMenu,
+  (inMenu) => {
+    sceneInstance?.setMenuShowcaseMode(inMenu);
+  },
+);
 
 watch(
   () => store.mapResetVersion,

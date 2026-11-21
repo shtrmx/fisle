@@ -115,6 +115,22 @@ const DEFAULT_CONFIG: GameConfig = {
   seed: 202604,
 };
 
+function createMenuDemoConfig(seed?: number): GameConfig {
+  return {
+    mode: GameMode.SKIRMISH,
+    scenario: ScenarioId.RANDOM,
+    mapSize: MapSize.SMALL,
+    factionCount: 4,
+    humanCount: 0,
+    difficulty: AiDifficulty.BALANCED,
+    treeSpawnRate: TreeSpawnRate.NORMAL,
+    riversAndLakes: true,
+    diplomacyEnabled: false,
+    fogOfWar: false,
+    seed: seed ?? Math.floor(100_000 + Math.random() * 900_000),
+  };
+}
+
 export interface SonnerItem {
   readonly id: string;
   readonly category: NotificationCategory;
@@ -132,7 +148,9 @@ export interface SonnerItem {
 const DEFAULT_SONNER_DURATION_MS = 5000;
 
 export const useGameStore = defineStore('antiyoyGame', () => {
-  const gameState = ref<GameState>(createInitialGameState(DEFAULT_CONFIG));
+  const gameState = ref<GameState>(
+    createInitialGameState(createMenuDemoConfig()),
+  );
   const selectedProvinceId = ref<string | null>(null);
   const selectedUnitKey = ref<HexKey | null>(null);
   const activeTool = ref<ActiveToolType | null>(null);
@@ -1009,6 +1027,9 @@ export const useGameStore = defineStore('antiyoyGame', () => {
 
   function setSceneReady(): void {
     isLoading.value = false;
+    if (showMainMenu.value && gameState.value.config.humanCount === 0) {
+      void processMenuDemoAiTurns();
+    }
   }
 
   function mirrorNoticesToBell(notices: DiplomaticNotice[]): Map<number, string> {
@@ -1763,6 +1784,7 @@ export const useGameStore = defineStore('antiyoyGame', () => {
         clearAllSonners();
         showMainMenu.value = true;
         isLoading.value = false;
+        startMenuDemo();
         showToast('Комната распущена и удалена.');
       }
     }, 450);
@@ -1781,6 +1803,7 @@ export const useGameStore = defineStore('antiyoyGame', () => {
     clearAllSonners();
     showMainMenu.value = true;
     isLoading.value = false;
+    startMenuDemo();
   }
 
   function exitCurrentMatch(): void {
@@ -1804,6 +1827,7 @@ export const useGameStore = defineStore('antiyoyGame', () => {
     showNotificationsDialog.value = false;
     showMatchOverviewDialog.value = false;
     showMainMenu.value = true;
+    startMenuDemo();
   }
 
   function sendChatMessage(text: string): void {
@@ -1837,8 +1861,12 @@ export const useGameStore = defineStore('antiyoyGame', () => {
     lastAutoSaveAt.value = null;
     autoSaveElapsedSec = 0;
 
+    const baseConfig =
+      gameState.value.config.humanCount > 0
+        ? gameState.value.config
+        : DEFAULT_CONFIG;
     const merged: GameConfig = {
-      ...gameState.value.config,
+      ...baseConfig,
       ...customConfig,
       riversAndLakes: true,
       seed:
@@ -2653,6 +2681,71 @@ export const useGameStore = defineStore('antiyoyGame', () => {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
+  function startMenuDemo(fixedSeed?: number): void {
+    aiRunToken++;
+    isAiThinking.value = false;
+    selectedProvinceId.value = null;
+    selectedUnitKey.value = null;
+    activeTool.value = null;
+    hoveredHexKey.value = null;
+    undoStack.value = [];
+    latestEvents.value = [];
+    const cfg = createMenuDemoConfig(fixedSeed);
+    gameState.value = createInitialGameState(cfg);
+    mapResetVersion.value++;
+    boardVersion.value++;
+    void processMenuDemoAiTurns();
+  }
+
+  async function processMenuDemoAiTurns(): Promise<void> {
+    const token = ++aiRunToken;
+    await delay(450);
+
+    while (token === aiRunToken && showMainMenu.value) {
+      if (gameState.value.winner !== null) {
+        await delay(1800);
+        if (token !== aiRunToken || !showMainMenu.value) return;
+        const sameSeed = gameState.value.config.seed;
+        latestEvents.value = [];
+        gameState.value = createInitialGameState(
+          createMenuDemoConfig(sameSeed),
+        );
+        mapResetVersion.value++;
+        boardVersion.value++;
+        await delay(450);
+        continue;
+      }
+
+      const activeFaction = getActiveFaction(gameState.value);
+      if (gameState.value.factions[activeFaction]?.isHuman) {
+        break;
+      }
+
+      let safetySteps = 0;
+      while (
+        token === aiRunToken &&
+        showMainMenu.value &&
+        safetySteps < 28
+      ) {
+        safetySteps++;
+        const step = runSingleAiStep(gameState.value);
+        if (!step.performed) break;
+        latestEvents.value = step.events;
+        boardVersion.value++;
+        if (gameState.value.winner !== null) break;
+        await delay(220);
+      }
+
+      if (token !== aiRunToken || !showMainMenu.value) return;
+      if (gameState.value.winner !== null) continue;
+
+      const turnEvents = advanceTurn(gameState.value);
+      latestEvents.value = turnEvents;
+      boardVersion.value++;
+      await delay(180);
+    }
+  }
+
   async function processAiTurnsIfNeeded(): Promise<void> {
     const token = ++aiRunToken;
     while (
@@ -2778,6 +2871,7 @@ export const useGameStore = defineStore('antiyoyGame', () => {
   }
 
   return {
+    defaultGameConfig: DEFAULT_CONFIG,
     gameState,
     selectedProvinceId,
     selectedUnitKey,

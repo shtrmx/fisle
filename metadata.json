@@ -1,6 +1,0 @@
-{
-  "name": "Antiyoy 3D",
-  "description": "Пошаговая гексагональная стратегия Antiyoy для веба на Vue 3, Three.js, anime.js и Pinia с плавным переходом из 2D-карты в ортографическую 3D-диораму при приближении.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

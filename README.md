@@ -1,123 +1,53 @@
 # Fisle
 
-Пошаговая гексагональная стратегия по мотивам Antiyoy: одиночная игра против ИИ, локальный хотсит на одном устройстве, онлайн-мультиплеер с комнатами по коду и паролю, туман войны, дипломатия и поддержка PWA.
+Пошаговая гексагональная 3D-стратегия по мотивам **Antiyoy**: одиночная игра против ИИ, локальный хотсит на одном устройстве, онлайн-мультиплеер с комнатами по коду и паролю, туман войны и дипломатия.
 
----
+> Оригинальная игра: [Antiyoy by yiotro](https://github.com/yiotro/Antiyoy)
 
-## Персональный запуск через Docker + Cloudflare Tunnel (`cloudflared`)
+Пример конфигурации контейнера:
 
-Самый простой способ развернуть игру дома на ПК, ноутбуке или домашнем сервере и сразу поделиться ссылкой с друзьями (включая WebSocket-мультиплеер по HTTPS).
+## Docker Compose (`docker-compose.yml`)
 
-### Требования
-
-- [Docker](https://docs.docker.com/get-docker/) и Docker Compose (`docker compose`)
-
-### Вариант 1: Быстрый запуск без аккаунта Cloudflare (Quick Tunnel)
-
-Подходит, чтобы быстро поднять игру и отправить временную HTTPS-ссылку друзьям.
-
-1. Склонируйте репозиторий и перейдите в папку проекта:
-   ```bash
-   git clone <url-репозитория>
-   cd <папка-проекта>
-   ```
-2. Запустите контейнеры:
-   ```bash
-   docker compose up -d --build
-   ```
-3. Посмотрите сгенерированную публичную ссылку в логах `cloudflared`:
-   ```bash
-   docker compose logs -f cloudflared
-   ```
-   В выводе появится адрес вида `https://xxxx-xxxx.trycloudflare.com` — он работает сразу и для веб-интерфейса, и для онлайн-комнат (`/ws`).
-4. Локально игра также доступна по адресу `http://localhost:3000`.
-
-> При перезапуске контейнера `cloudflared` адрес Quick Tunnel меняется. Для постоянного домена используйте Вариант 2.
-
----
-
-### Вариант 2: Постоянный домен через Cloudflare Zero Trust Tunnel
-
-Подходит, если у вас есть собственный домен, подключённый к Cloudflare.
-
-1. Откройте [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/) → **Networks** → **Tunnels** → **Create a tunnel** (тип **Cloudflared**).
-2. Скопируйте выданный **Tunnel Token** (длинная строка, передаваемая в `--token`).
-3. На вкладке **Public Hostname** добавьте маршрут:
-   - **Subdomain / Domain**: например `fisle.example.com`
-   - **Service Type**: `HTTP`
-   - **URL**: `fisle:3000`
-4. Создайте файл `.env` в корне проекта (на основе `.env.example`):
-   ```env
-   PORT=3000
-   CLOUDFLARE_TUNNEL_TOKEN=ваш_токен_туннеля
-   ```
-5. Запустите стек:
-   ```bash
-   docker compose up -d --build
-   ```
-
-Игра станет постоянно доступна по вашему домену с автоматическим HTTPS и поддержкой WebSocket.
-
----
-
-### Запуск в Docker только локально (без `cloudflared`)
-
-Если публичный туннель не нужен:
-
-```bash
-docker compose up -d --build fisle
+```yaml
+services:
+  fisle:
+    image: shtrmx/fisle-game:latest
+    container_name: fisle
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MAX_ROOMS: ${MAX_ROOMS:-100}
+      MAX_ROOMS_PER_PLAYER: ${MAX_ROOMS_PER_PLAYER:-3}
+    deploy:
+      resources:
+        limits:
+          cpus: "${CPU_LIMIT:-1.0}"
+          memory: "${MEMORY_LIMIT:-512M}"
+    restart: unless-stopped
 ```
 
-Откройте `http://localhost:3000` (или порт, указанный в `PORT`).
+## Переменные окружения (`.env`)
 
-### Остановка и обновление
-
-```bash
-# Остановить контейнеры
-docker compose down
-
-# Пересобрать и перезапустить после обновления кода
-docker compose up -d --build
+```env
+FISLE_VERSION=latest
+PORT=3000
+MAX_ROOMS=100
+MAX_ROOMS_PER_PLAYER=3
+CPU_LIMIT=1.0
+MEMORY_LIMIT=512M
 ```
 
----
-
-## Локальный запуск без Docker
-
-### Требования
-
-- [Node.js 22+](https://nodejs.org/) (используется нативный запуск `server.ts`)
-
-### Установка и запуск
+## Запуск через `docker run`
 
 ```bash
-# Установка зависимостей
-npm install
-
-# Режим разработки (Vite + Express + WebSocket на порту 3000)
-npm run dev
-
-# Продакшен-сборка и запуск
-npm run build
-npm start
+docker run -d \
+  --name fisle \
+  -p 3000:3000 \
+  -e MAX_ROOMS=100 \
+  -e MAX_ROOMS_PER_PLAYER=3 \
+  --cpus="1.0" \
+  --memory="512m" \
+  shtrmx/fisle-game:latest
 ```
-
-По умолчанию сервер слушает `http://0.0.0.0:3000`. Порт можно переопределить через переменную окружения `PORT`.
-
----
-
-## Переменные окружения
-
-| Переменная | По умолчанию | Описание |
-| --- | --- | --- |
-| `PORT` | `3000` | Порт HTTP/WebSocket-сервера (и проброшенный порт в Docker Compose). |
-| `CLOUDFLARE_TUNNEL_TOKEN` | _(пусто)_ | Токен постоянного туннеля Cloudflare Zero Trust. Если пусто — автоматически запускается Quick Tunnel (`trycloudflare.com`). |
-
----
-
-## Управление и горячие клавиши (ПК)
-
-- `Ctrl + /` — полная справка по всем горячим клавишам (доступна в главном меню и во время партии).
-- `Ctrl + F` — переключение полноэкранного режима.
-- `WASD` / стрелки — перемещение камеры, `Q` / `E` — поворот, `+` / `-` или колесо мыши — масштаб.
-- `Enter` / `Space` — завершить ход, `Ctrl + Z` — отменить действие, `Tab` — фокус на следующего свободного юнита.
